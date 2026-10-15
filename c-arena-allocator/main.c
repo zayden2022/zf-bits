@@ -49,16 +49,11 @@ struct arena_create_out arena_create(usize size) {
         return out;
     }
 
+    // malloc returns an aligned memory block.  If malloc is raplaced with
+    // something else, make sure that the first allocation will be aligned.
+
     out.arena.size = size;
     out.arena.used = 0;
-
-    // aligning the first allocation
-    const usize ARENA_ALIGN = _Alignof(max_align_t);
-    const usize shift = (usize)out.arena.data % ARENA_ALIGN;
-    if (shift != 0) {
-        out.arena.used = ARENA_ALIGN - shift;
-    }
-
     out.success = true;
     return out;
 }
