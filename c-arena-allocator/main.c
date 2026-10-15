@@ -111,7 +111,7 @@ void arena_free(struct arena *arena) {
 
 int main(void) {
     printf("hello\n");
-    printf("alignment: %lu\n", _Alignof(max_align_t));
+    printf("alignment: %zu\n", _Alignof(max_align_t));
 
     struct arena_create_out arena_out = arena_create(1024);
     if (!arena_out.success) {
@@ -126,7 +126,7 @@ int main(void) {
         usize alloc_size = 100;
         struct arena_alloc_out alloc_res = arena_alloc(&arena, alloc_size);
         if(alloc_res.success) {
-            printf("successfully allocated 0x%zx bytes, address: 0x%p\n", alloc_size, alloc_res.ptr);
+            printf("successfully allocated 0x%zx bytes, address: %p\n", alloc_size, alloc_res.ptr);
         } else {
             printf("failed to allocated 0x%zx bytes\n", alloc_size);
             break;
