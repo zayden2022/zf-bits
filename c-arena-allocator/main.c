@@ -66,11 +66,8 @@ struct arena_alloc_out {
 };
 
 struct arena_alloc_out arena_alloc(struct arena *arena, usize size) {
-    assert(arena != NULL);
-    assert(arena->used <= arena->size);
-
     struct arena_alloc_out out = {0};
-    if (size == 0) {
+    if (arena == NULL || arena->data == NULL || size == 0) {
         return out;
     }
 
@@ -78,6 +75,8 @@ struct arena_alloc_out arena_alloc(struct arena *arena, usize size) {
         // avoiding size overflow during alignment below
         return out;
     }
+
+    assert(arena->used <= arena->size);
 
     if (size % ARENA_ALIGN != 0) {
         size += ARENA_ALIGN - (size % ARENA_ALIGN);
