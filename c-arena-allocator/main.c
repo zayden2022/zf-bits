@@ -1,7 +1,3 @@
-/* // types.c */
-/* #ifndef TYPES_C */
-/* #define TYPES_C */
-
 #include <stddef.h>
 #include <stdint.h>
 
@@ -20,25 +16,20 @@ typedef double f64;
 
 typedef size_t usize;
 
-#define KiB(x) (x * 1024)
+#define KiB(x) ((x) * 1024)
 #define MiB(x) (KiB(x) * 1024)
 #define GiB(x) (MiB(x) * 1024)
 
 #define MIN(a, b) ((a < b) ? (a) : (b))
 #define MAX(a, b) ((a > b) ? (a) : (b))
 
-/* #endif // TYPES_C */
-
-/* #ifndef ARENA_C */
-/* #define ARENA_C */
-
-// #include "types.c"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 struct arena {
-    void *data;
+    u8 *data;
     usize size;
     usize used;
 };
@@ -57,13 +48,20 @@ struct arena_create_out arena_create(usize size) {
     if (out.arena.data == NULL) {
         return out;
     }
+
     out.arena.size = size;
     out.arena.used = 0;
+
+    // aligning the first allocation
+    const usize ARENA_ALIGN = _Alignof(max_align_t);
+    const usize shift = (usize)out.arena.data % ARENA_ALIGN;
+    if (shift != 0) {
+        out.arena.used = ARENA_ALIGN - shift;
+    }
+
     out.success = true;
     return out;
 }
-
-/* #define ARENA_ALIGN 8 */
 
 struct arena_alloc_out {
     void *ptr;
@@ -71,43 +69,49 @@ struct arena_alloc_out {
 };
 
 struct arena_alloc_out arena_alloc(struct arena *arena, usize size) {
-    const usize ARENA_ALIGN = _Alignof(max_align_t);
+    assert(arena != NULL);
+    assert(arena->used <= arena->size);
+
     struct arena_alloc_out out = {0};
-    usize alignment = (ARENA_ALIGN - (arena->used % ARENA_ALIGN)) % ARENA_ALIGN;
-    out.ptr = arena->data + arena->used + alignment;
-    if (out.ptr + size > arena->data + arena->size)
+    if (size == 0) {
         return out;
-    arena->used += size + alignment;
+    }
+
+    const usize ARENA_ALIGN = _Alignof(max_align_t);
+
+    if (size > SIZE_MAX - ARENA_ALIGN) {
+        // avoiding size overflow during alignment below
+        return out;
+    }
+
+    if (size % ARENA_ALIGN != 0) {
+        size += ARENA_ALIGN - (size % ARENA_ALIGN);
+    }
+    usize space_left = arena->size - arena->used;
+    if (size > space_left) {
+        return out;
+    }
+    out.ptr = arena->data + arena->used;
+    arena->used += size;
     out.success = true;
     return out;
 }
 
-struct arena_realloc_out {
-    void *ptr;
-    bool success;
-};
-
-struct arena_realloc_out arena_realloc(struct arena *arena, usize new_size, void *src, usize old_size) {
-    struct arena_realloc_out out = {0};
-    struct arena_alloc_out alloc_out = arena_alloc(arena, new_size);
-    if (!alloc_out.success)
-        return out;
-
-    out.ptr = memcpy(alloc_out.ptr, src, MIN(old_size, new_size));
-    out.success = true;
-    return out;
-}
-
+/**
+ * Clear the arena, but not deallocate the underlying memory.
+ */
 void arena_clear(struct arena *arena) { arena->used = 0; }
 
+/**
+ * Free memory allocated by the arena.
+ * All memory blocks allocated in this arena will become invalid.
+ */
 void arena_free(struct arena *arena) {
     free(arena->data);
     arena->data = 0;
     arena->size = 0;
     arena->used = 0;
 }
-
-/* #endif // ARENA_C */
 
 #include <stdio.h>
 
@@ -122,6 +126,7 @@ int main(void) {
     }
 
     struct arena arena = arena_out.arena;
+    printf("arena(address = %p, size = %zu, used = %zu)\n", arena.data, arena.size, arena.used);
 
     while(true) {
         usize alloc_size = 100;
@@ -132,6 +137,7 @@ int main(void) {
             printf("failed to allocated 0x%zx bytes\n", alloc_size);
             break;
         }
+        printf("arena(address = %p, size = %zu, used = %zu)\n", arena.data, arena.size, arena.used);
     }
 
     arena_free(&arena);
