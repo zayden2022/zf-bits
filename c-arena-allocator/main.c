@@ -58,6 +58,8 @@ struct arena_create_out arena_create(usize size) {
     return out;
 }
 
+#define ARENA_ALIGN _Alignof(max_align_t)
+
 struct arena_alloc_out {
     void *ptr;
     bool success;
@@ -71,8 +73,6 @@ struct arena_alloc_out arena_alloc(struct arena *arena, usize size) {
     if (size == 0) {
         return out;
     }
-
-    const usize ARENA_ALIGN = _Alignof(max_align_t);
 
     if (size > SIZE_MAX - ARENA_ALIGN) {
         // avoiding size overflow during alignment below
